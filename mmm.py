@@ -39,23 +39,23 @@ def find_endpoints(auth_token, headers, region, desired_service="cloudServersOpe
 def getset_keyring_credentials(username=None, password=None):
     #Method to retrieve credentials from keyring.
     print (sys.version_info.major)
-    username = keyring.get_password("mmr", "username")
+    username = keyring.get_password("mmm", "username")
     if username is None:
         if sys.version_info.major < 3:
             username = raw_input("Enter Rackspace Username: ")
-            keyring.set_password("mmr", 'username', username)
-            print ("Username value saved in keychain as mmr username.")
+            keyring.set_password("mmm", 'username', username)
+            print ("Username value saved in keychain as mmm username.")
         elif sys.version_info.major >= 3:
             username = input("Enter Rackspace Username: ")
-            keyring.set_password("mmr", 'username', username)
-            print ("Username value saved in keychain as mmr username.")
+            keyring.set_password("mmm", 'username', username)
+            print ("Username value saved in keychain as mmm username.")
     else:
         print ("Authenticating to Rackspace cloud as %s" % username)
-        password = keyring.get_password("mmr", "password")
+        password = keyring.get_password("mmm", "password")
     if not password:
         password = getpass("Enter Rackspace API key:")
-        keyring.set_password("mmr", 'password' , password)
-        print ("API key value saved in keychain as mmr password.")
+        keyring.set_password("mmm", 'password' , password)
+        print ("API key value saved in keychain as mmm password.")
     return username, password
 # Request to authenticate using password
 def get_auth_token(username,password):
@@ -107,6 +107,7 @@ def get_srv_list(cs_endpoint, headers, region):
 
 def check_for_metadata(cs_endpoint, headers, region, srv_list):
     #These tags are all related to live migration
+    srvs_w_mig_metadata = {}
     mig_metadata = ['no_dc_migration', 'skip_all_migrations',
                     'no_standard_migrate', 'no_live_migrate',
                     'allow_live_migrate'
@@ -116,7 +117,7 @@ def check_for_metadata(cs_endpoint, headers, region, srv_list):
     for srv in srv_list:
         srv_name = srv["name"]
         srv_url = srv["links"][0]["href"]
-        print ("Retrieving metadata info for server {}".format(srv_name))
+        # print ("Retrieving metadata info for server {}".format(srv_name))
         srv_info = requests.get(url=srv_url,headers=headers)
         # print (srv_info.json().keys())
         srv_metadata = srv_info.json()["server"]["metadata"]
@@ -125,12 +126,25 @@ def check_for_metadata(cs_endpoint, headers, region, srv_list):
         for mig_metadatum in mig_metadata:
             if mig_metadatum in srv_metadata.keys():
                 srv_mig_metadata.append(mig_metadatum)
+                for key in srv_name, srv_url, mig_metadatum:
+                    srvs_w_mig_metadata[srv].append([key])
+                # srvs_w_mig_metadata[srv]["srv_url"] = srv_url
+                # srvs_w_mig_metadata[srv][mig_metadatum] = mig_metadatum
         if srv_mig_metadata:
             print (f"Server {srv_name} has migration metadata"
                    f"{srv_mig_metadata} set.")
         else:
             print (f"Server {srv_name} has no migration metadata. It is "
             "allowed to live-migrate.")
+    return srvs_w_mig_metadata
+
+def del_metadata(srvs_w_mig_metadata, headers):
+    for srv in srvs_w_mig_metadata:
+        print (srv.keys())
+        # srv_name = srv["srv_name"]
+        # if "skip_all_migrations" in srv.keys():
+        #     print (f"Server {srv_name} has skip all migrations.")
+        #     # md_url = f"{srv["srv_url"]}/metadata/srv[""]}
 
 
 
@@ -152,8 +166,11 @@ def main(region, action):
 
     srv_list = get_srv_list(cs_endpoint, headers, region)
 
-    check_for_metadata(cs_endpoint, headers, region, srv_list)
+    srvs_w_mig_metadata = check_for_metadata(cs_endpoint, headers, region, srv_list)
 
+    # print (srvs_w_mig_metadata)
+
+    # del_metadata(srvs_w_mig_metadata, headers)
 
 if __name__ == '__main__':
     plac.call(main)
